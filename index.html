@@ -1,26 +1,32 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>EasyStrum Guitar</title>
+    <title>吉他模拟器 | Guitar Sim</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入字体 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;900&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    
     <style>
+      /* 基础重置 */
       body {
-        background-color: #1a1a1a;
-        color: #ffffff;
+        margin: 0;
+        padding: 0;
+        /* 移除硬编码的背景色，交由 App 组件控制 */
       }
       .string-vibrate {
         animation: vibrate 0.1s linear infinite;
       }
       @keyframes vibrate {
         0% { transform: translateY(0); }
-        25% { transform: translateY(1px); }
+        25% { transform: translateY(2px); }
         50% { transform: translateY(0); }
-        75% { transform: translateY(-1px); }
+        75% { transform: translateY(-2px); }
         100% { transform: translateY(0); }
       }
-      /* Custom scrollbar for chord list */
       .hide-scrollbar::-webkit-scrollbar {
         display: none;
       }
@@ -29,18 +35,19 @@
         scrollbar-width: none;
       }
     </style>
-  <script type="importmap">
-{
-  "imports": {
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0"
-  }
-}
-</script>
-</head>
+    <script type="importmap">
+    {
+      "imports": {
+        "react/": "https://aistudiocdn.com/react@^19.2.0/",
+        "react": "https://aistudiocdn.com/react@^19.2.0",
+        "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+        "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0"
+      }
+    }
+    </script>
+  </head>
   <body>
     <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
   </body>
 </html>

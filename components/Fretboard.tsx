@@ -2,76 +2,94 @@ import React from 'react';
 import GuitarString from './GuitarString';
 import { STRINGS, ChordShape } from '../types';
 import { playNote } from '../services/audioEngine';
+import { ThemeType } from '../App';
 
 interface FretboardProps {
   currentChord: ChordShape | null;
   mode: 'chord' | 'solo';
+  theme: ThemeType;
 }
 
 const FRETS_COUNT = 15;
 const MARKERS = [3, 5, 7, 9, 12, 15];
 
-const Fretboard: React.FC<FretboardProps> = ({ currentChord, mode }) => {
+const Fretboard: React.FC<FretboardProps> = ({ currentChord, mode, theme }) => {
   
   const handleStrum = (stringIndex: number, fret: number) => {
     const stringConfig = STRINGS[stringIndex];
     playNote(stringIndex, fret, stringConfig.semiToneOffset);
   };
 
-  // Helper to determine which fret is pressed for a given string
-  const getActiveFret = (stringIndex: number) => {
-    if (mode === 'chord' && currentChord) {
-      return currentChord.frets[stringIndex];
+  // 风格配置
+  const styles = {
+    classic: {
+      container: 'bg-[#2a2a2a] border-8 border-[#1a1a1a] rounded-xl shadow-2xl',
+      fretColor: 'border-r-[#555] border-r-2',
+      nutColor: 'border-r-[#111] border-r-4',
+      marker: 'bg-white/20',
+      text: 'text-white/30',
+      activeIndicator: 'bg-indigo-500 border-white shadow-lg text-white',
+    },
+    anime: {
+      container: 'bg-[#fff8e1] rounded-3xl border-8 border-[#f8f0d8] ring-4 ring-white/50 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)]',
+      fretColor: 'border-r-[#e0e0e0] border-r-2',
+      nutColor: 'border-r-[#5d4037] border-r-6',
+      marker: 'bg-pink-200/80 shadow-inner',
+      text: 'text-gray-400',
+      activeIndicator: 'bg-gradient-to-br from-pink-400 to-purple-400 border-white shadow-md text-white animate-bounce-sm',
     }
-    return 0; // Open string by default in solo mode (logic can be expanded for manual fretting)
   };
 
-  return (
-    <div className="relative w-full max-w-5xl mx-auto h-80 bg-[#3e2723] rounded-xl shadow-2xl overflow-hidden border-4 border-[#251614] select-none">
-      {/* Wood Texture Overlay */}
-      <div className="absolute inset-0 opacity-20 pointer-events-none" 
-           style={{ backgroundImage: `url('https://www.transparenttextures.com/patterns/wood-pattern.png')` }} 
-      />
+  const s = styles[theme];
 
-      {/* Frets (Vertical Lines) */}
+  return (
+    <div className={`relative w-full max-w-5xl mx-auto h-80 overflow-hidden select-none transition-all duration-300 ${s.container}`}>
+      
+      {/* 装饰纹理 (Anime Only) */}
+      {theme === 'anime' && (
+        <div className="absolute inset-0 opacity-10 pointer-events-none" 
+             style={{ backgroundImage: `radial-gradient(#ffcc80 1px, transparent 1px)`, backgroundSize: '20px 20px' }} 
+        />
+      )}
+      
+      {/* 经典木纹 (Classic Only) */}
+      {theme === 'classic' && (
+         <div className="absolute inset-0 opacity-20 pointer-events-none mix-blend-overlay"
+              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23ffffff' fill-opacity='0.05' fill-rule='evenodd'/%3E%3C/svg%3E")`}}
+         />
+      )}
+
+      {/* 品丝 (Vertical Lines) */}
       <div className="absolute inset-0 flex">
         {Array.from({ length: FRETS_COUNT + 1 }).map((_, i) => (
           <div 
             key={`fret-${i}`}
-            className="h-full border-r-4 border-gray-400 relative"
-            style={{ 
-              width: `${100 / FRETS_COUNT}%`, 
-              borderColor: i === 0 ? '#111' : '#9ca3af', // Nut is thicker/darker
-              boxShadow: i > 0 ? '2px 0 5px rgba(0,0,0,0.3)' : 'none'
-            }}
+            className={`h-full relative ${i === 0 ? s.nutColor : s.fretColor}`}
+            style={{ width: `${100 / FRETS_COUNT}%` }}
           >
-            {/* Fret Number Label */}
-            <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-xs text-gray-500 font-mono">
+            {/* 品位数字 */}
+            <span className={`absolute -bottom-5 left-1/2 -translate-x-1/2 text-[10px] font-bold ${s.text}`}>
               {i > 0 ? i : ''}
             </span>
 
-            {/* Fret Markers (Dots) */}
+            {/* 品位标记 (Markers) */}
             {MARKERS.includes(i) && (
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-gray-300 opacity-60 shadow-inner" />
+              <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full ${s.marker}`} />
             )}
+            {/* 12品双点 */}
             {i === 12 && (
-               <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-gray-300 opacity-60 shadow-inner" style={{marginTop: '-20px'}}/>
-            )}
-             {i === 12 && (
-               <div className="absolute bottom-1/3 left-1/2 -translate-x-1/2 translate-y-1/2 w-4 h-4 rounded-full bg-gray-300 opacity-60 shadow-inner" style={{marginBottom: '-20px'}}/>
+               <>
+                 <div className={`absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full ${s.marker}`} style={{marginTop: '-20px'}}/>
+                 <div className={`absolute bottom-1/3 left-1/2 -translate-x-1/2 translate-y-1/2 w-4 h-4 rounded-full ${s.marker}`} style={{marginBottom: '-20px'}}/>
+               </>
             )}
           </div>
         ))}
       </div>
 
-      {/* Strings Layer */}
+      {/* 琴弦层 */}
       <div className="absolute inset-0 flex flex-col justify-center px-0 py-4 z-10">
         {STRINGS.map((str, idx) => {
-          // If in chord mode, the "pressed" fret is determined by the chord.
-          // In solo mode, we default to 0 (open) for this simplified version, 
-          // or we could add state to track clicked frets.
-          // However, the prompt emphasizes "automatic alignment", so Chord mode is primary.
-          
           const chordFret = currentChord ? currentChord.frets[idx] : 0;
           const isMuted = chordFret === -1;
           const activeFret = isMuted ? -1 : chordFret;
@@ -84,23 +102,22 @@ const Fretboard: React.FC<FretboardProps> = ({ currentChord, mode }) => {
                 activeFret={activeFret}
                 onStrum={handleStrum}
                 isMuted={isMuted}
+                theme={theme}
               />
-              {/* Visual Finger Position Indicator */}
+              {/* 手指按压指示器 */}
               {activeFret > 0 && (
                  <div 
-                    className="absolute top-1/2 -translate-y-1/2 w-6 h-6 bg-blue-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center z-20 pointer-events-none transition-all duration-300"
+                    className={`absolute top-1/2 -translate-y-1/2 w-7 h-7 rounded-full border-2 flex items-center justify-center z-20 pointer-events-none transition-all duration-300 ${s.activeIndicator}`}
                     style={{ 
-                        // Calculate position: (FretIndex - 0.5) * (100 / FretCount)%
-                        // This centers it in the fret space
                         left: `calc(${activeFret} * (100% / ${FRETS_COUNT}) - (50% / ${FRETS_COUNT}))`
                     }}
                  >
-                    <span className="text-[10px] font-bold text-white">{activeFret}</span>
+                    <span className="text-xs font-black">{activeFret}</span>
                  </div>
               )}
-               {/* Muted Indicator */}
+               {/* 静音指示器 */}
                {isMuted && (
-                 <div className="absolute left-2 top-1/2 -translate-y-1/2 text-red-500 font-bold text-lg opacity-80 z-20 select-none">
+                 <div className="absolute left-2 top-1/2 -translate-y-1/2 bg-red-100 text-red-500 rounded-full w-6 h-6 flex items-center justify-center font-bold text-xs shadow-sm z-20 select-none opacity-80">
                     ✕
                  </div>
                )}
