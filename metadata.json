@@ -1,0 +1,5 @@
+{
+  "name": "EasyStrum Guitar",
+  "description": "An interactive virtual guitar simulator with automatic chord alignment and Karplus-Strong sound synthesis. Makes playing guitar effortless.",
+  "requestFramePermissions": []
+}
