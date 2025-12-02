@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GuitarStringConfig } from '../types';
 import { ThemeType } from '../App';
 
@@ -9,6 +9,7 @@ interface GuitarStringProps {
   onStrum: (stringIndex: number, fret: number) => void;
   isMuted: boolean;
   theme: ThemeType;
+  lastStrummed?: number; // Timestamp to trigger animation externally
 }
 
 const GuitarString: React.FC<GuitarStringProps> = ({ 
@@ -17,65 +18,73 @@ const GuitarString: React.FC<GuitarStringProps> = ({
   activeFret, 
   onStrum,
   isMuted,
-  theme
+  theme,
+  lastStrummed
 }) => {
   const [isVibrating, setIsVibrating] = useState(false);
+
+  // Trigger vibration when lastStrummed prop updates
+  useEffect(() => {
+    if (lastStrummed) {
+      setIsVibrating(true);
+      const timer = setTimeout(() => setIsVibrating(false), 200);
+      return () => clearTimeout(timer);
+    }
+  }, [lastStrummed]);
 
   // 风格颜色配置
   const colors = {
     anime: [
-        '#ffab91', // E - 橙红
-        '#ffcc80', // A - 橙黄
-        '#fff59d', // D - 黄
-        '#a5d6a7', // G - 绿
-        '#81d4fa', // B - 蓝
-        '#ce93d8'  // e - 紫
+        '#ffab91', // E
+        '#ffcc80', // A
+        '#fff59d', // D
+        '#a5d6a7', // G
+        '#81d4fa', // B
+        '#ce93d8'  // e
     ],
     classic: [
-        '#d4a373', // Bronze
-        '#d4a373', // Bronze
-        '#d4a373', // Bronze
-        '#C0C0C0', // Silver (Plain)
-        '#C0C0C0', // Silver
-        '#C0C0C0', // Silver
+        '#cd7f32', // Bronze (Low E)
+        '#cd7f32', // Bronze (A)
+        '#cd7f32', // Bronze (D)
+        '#e0e0e0', // Steel (G)
+        '#e0e0e0', // Steel (B)
+        '#e0e0e0', // Steel (e)
     ]
   };
 
   const currentColors = colors[theme];
   const stringColor = currentColors[stringIndex];
 
-  const handleInteraction = () => {
-    if (isMuted) return;
-    
-    setIsVibrating(true);
-    onStrum(stringIndex, activeFret);
-    
-    setTimeout(() => setIsVibrating(false), 200);
+  const handleMouseEnter = () => {
+    // Mouse hover strumming
+    if (!isMuted) {
+      onStrum(stringIndex, activeFret);
+    }
   };
 
   return (
     <div 
-      className="relative w-full flex items-center group cursor-pointer" 
-      style={{ height: '40px' }}
-      onMouseEnter={handleInteraction}
-      onClick={handleInteraction}
+      className="relative w-full flex items-center group touch-none" 
+      style={{ height: '14.5%' }} // Distribute vertically evenly
+      onMouseEnter={handleMouseEnter}
+      data-string-index={stringIndex} // Crucial for global touch handler
     >
-      {/* 琴弦本体 */}
+      {/* String visual */}
       <div 
-        className={`w-full absolute top-1/2 left-0 transition-transform duration-75 ${isVibrating ? 'string-vibrate' : ''}`}
+        className={`w-full absolute top-1/2 left-0 transition-transform duration-75 pointer-events-none ${isVibrating ? 'string-vibrate' : ''}`}
         style={{
-          height: `${Math.max(1, config.thickness)}px`, // 确保最细的弦也可见
+          height: `${Math.max(1.5, config.thickness)}px`, 
           backgroundColor: stringColor,
           boxShadow: isVibrating 
-            ? `0 0 8px ${theme === 'anime' ? stringColor : '#ffffff80'}` 
-            : '0 1px 2px rgba(0,0,0,0.3)',
+            ? `0 0 10px ${theme === 'anime' ? stringColor : '#ffffffaa'}` 
+            : theme === 'classic' ? '0 1px 3px rgba(0,0,0,0.8)' : '0 1px 2px rgba(0,0,0,0.2)',
           opacity: isMuted ? 0.3 : 1,
           borderRadius: '99px'
         }}
       />
       
-      {/* 隐形的大触控区域 */}
-      <div className="w-full h-full absolute top-0 left-0 z-10" />
+      {/* Invisible larger hit area for easier mouse/touch interaction */}
+      <div className="w-full h-full absolute top-0 left-0 z-10 opacity-0" data-string-index={stringIndex} />
     </div>
   );
 };

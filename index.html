@@ -2,8 +2,8 @@
 <html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>吉他模拟器 | Guitar Sim</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <title>EasyStrum Guitar</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 引入字体 -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15,7 +15,15 @@
       body {
         margin: 0;
         padding: 0;
-        /* 移除硬编码的背景色，交由 App 组件控制 */
+        overflow: hidden; /* Prevent body scroll to ensure app handles it */
+        touch-action: none; /* Critical for mobile guitar play */
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      #root {
+        height: 100vh;
+        width: 100vw;
+        overflow: hidden;
       }
       .string-vibrate {
         animation: vibrate 0.1s linear infinite;
@@ -27,6 +35,7 @@
         75% { transform: translateY(-2px); }
         100% { transform: translateY(0); }
       }
+      /* Custom Scrollbar for Chord List if needed */
       .hide-scrollbar::-webkit-scrollbar {
         display: none;
       }
