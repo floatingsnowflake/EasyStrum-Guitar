@@ -1,24 +1,74 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Fretboard from './components/Fretboard';
+import KeySettingsModal, { KeyMap, ActionType } from './components/KeySettingsModal';
 import { CHORDS, ChordShape, STRINGS } from './types';
 import { playNote } from './services/audioEngine';
-import { Music, Palette, Zap, LayoutGrid, Keyboard } from 'lucide-react';
+import { Music, Palette, Zap, LayoutGrid, Keyboard, Delete, Settings2 } from 'lucide-react';
 
 export type ThemeType = 'classic' | 'anime';
 type PlayMode = 'chord' | 'custom';
+
+// Default Keys based on user request
+const DEFAULT_KEY_MAP: KeyMap = {
+  // Frets 0-15: 1234 qwer asdf zxcv
+  '1': { type: 'fret', value: 0 },
+  '2': { type: 'fret', value: 1 },
+  '3': { type: 'fret', value: 2 },
+  '4': { type: 'fret', value: 3 },
+  'q': { type: 'fret', value: 4 },
+  'w': { type: 'fret', value: 5 },
+  'e': { type: 'fret', value: 6 },
+  'r': { type: 'fret', value: 7 },
+  'a': { type: 'fret', value: 8 },
+  's': { type: 'fret', value: 9 },
+  'd': { type: 'fret', value: 10 },
+  'f': { type: 'fret', value: 11 },
+  'z': { type: 'fret', value: 12 },
+  'x': { type: 'fret', value: 13 },
+  'c': { type: 'fret', value: 14 },
+  'v': { type: 'fret', value: 15 },
+
+  // Strings: u i o j k l (Assuming u=String 6/Index 0, l=String 1/Index 5)
+  'u': { type: 'string', value: 0 }, // E
+  'i': { type: 'string', value: 1 }, // A
+  'o': { type: 'string', value: 2 }, // D
+  'j': { type: 'string', value: 3 }, // G
+  'k': { type: 'string', value: 4 }, // B
+  'l': { type: 'string', value: 5 }, // e
+};
 
 const App: React.FC = () => {
   const [currentChordName, setCurrentChordName] = useState<string>('Em');
   const [theme, setTheme] = useState<ThemeType>('classic');
   const [playMode, setPlayMode] = useState<PlayMode>('chord');
   
+  // Settings Modal State
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [keyMapping, setKeyMapping] = useState<KeyMap>(() => {
+    // Load from local storage or use default
+    try {
+      const saved = localStorage.getItem('guitar_key_map');
+      return saved ? JSON.parse(saved) : DEFAULT_KEY_MAP;
+    } catch {
+      return DEFAULT_KEY_MAP;
+    }
+  });
+
+  // Persist mapping
+  useEffect(() => {
+    localStorage.setItem('guitar_key_map', JSON.stringify(keyMapping));
+  }, [keyMapping]);
+  
   // Custom mode state: Array of 6 frets (0 = open, -1 = muted)
   const [customFrets, setCustomFrets] = useState<number[]>([0, 0, 0, 0, 0, 0]);
+  
+  // Fret Queue for melodic play (User inputs frets, then plays strings)
+  const [fretQueue, setFretQueue] = useState<number[]>([]);
   
   // Visual vibration state synced between keyboard and touch
   const [strumTimestamps, setStrumTimestamps] = useState<number[]>(new Array(6).fill(0));
 
-  // Determine active frets based on mode
+  // Determine active frets based on mode (Visuals only)
   const currentChordShape: ChordShape | null = playMode === 'chord' 
     ? CHORDS[currentChordName] 
     : { name: 'Custom', frets: customFrets };
@@ -42,69 +92,83 @@ const App: React.FC = () => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.repeat) return;
+      // Don't trigger if typing in an input field (though we don't have many)
+      if (document.activeElement?.tagName === 'INPUT') return;
+      if (isSettingsOpen) return; // Disable playing while settings are open
 
       const key = e.key.toLowerCase();
 
-      // 1. Strumming Keys (Available in all modes)
-      // Space: Strum all active strings
+      // Global Controls
+      if (e.key === 'Backspace' || e.key === 'Delete') {
+        if (playMode === 'custom') setFretQueue(prev => prev.slice(0, -1));
+        return;
+      }
+      if (e.key === 'Escape') {
+        setFretQueue([]);
+        return;
+      }
       if (e.code === 'Space' || e.key === 'Enter') {
         e.preventDefault();
         const activeFrets = currentChordShape?.frets || [0,0,0,0,0,0];
         activeFrets.forEach((fret, index) => {
           if (fret !== -1) {
-            // Stagger slightly for realism
             setTimeout(() => triggerString(index, fret), index * 30);
           }
         });
         return;
       }
-
-      // Individual String Plucking (A S D F G H -> String 6 5 4 3 2 1)
-      const stringKeys = ['a', 's', 'd', 'f', 'g', 'h'];
-      const stringIndex = stringKeys.indexOf(key);
-      if (stringIndex !== -1) {
-        const fret = currentChordShape?.frets[stringIndex] ?? 0;
-        triggerString(stringIndex, fret);
+      if (key === 'm') {
+        setPlayMode(prev => prev === 'chord' ? 'custom' : 'chord');
+        setFretQueue([]);
         return;
       }
 
-      // 2. Mode Specific Controls
-      if (playMode === 'chord') {
-        const chordMap: Record<string, string> = {
-          '1': 'Em', '2': 'E', '3': 'Am', '4': 'A',
-          '5': 'D', '6': 'C', '7': 'G', '8': 'F'
-        };
-        if (chordMap[key]) {
-          setCurrentChordName(chordMap[key]);
-        }
-      } else {
-        // Custom Mode: Numbers 0-9 set Global Fret (Capo style)
-        // User can then tweak individual strings via mouse
-        if (!isNaN(parseInt(key))) {
-          const fret = parseInt(key);
-          setCustomFrets(new Array(6).fill(fret));
-        }
-      }
+      // Action Mapping Logic
+      const action = keyMapping[key];
+      if (!action) return; // No action for this key
 
-      // Mode Switching
-      if (key === 'm') {
-        setPlayMode(prev => prev === 'chord' ? 'custom' : 'chord');
+      if (action.type === 'fret') {
+        // ONLY valid in Custom Mode
+        if (playMode === 'custom') {
+           // Queue this fret
+           if (fretQueue.length < 12) {
+             setFretQueue(prev => [...prev, action.value]);
+           }
+        }
+      } else if (action.type === 'string') {
+        // Play the string
+        const stringIndex = action.value;
+        if (stringIndex < 0 || stringIndex > 5) return;
+
+        let fretToPlay = 0;
+
+        if (playMode === 'chord') {
+           fretToPlay = currentChordShape?.frets[stringIndex] ?? 0;
+           triggerString(stringIndex, fretToPlay);
+        } else {
+           // Custom Mode Logic
+           if (fretQueue.length > 0) {
+             // Consume from Queue
+             fretToPlay = fretQueue[0];
+             setFretQueue(prev => prev.slice(1)); // Pop first element
+           } else {
+             // Fallback to static custom frets
+             fretToPlay = customFrets[stringIndex];
+           }
+           triggerString(stringIndex, fretToPlay);
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [playMode, currentChordShape]);
+  }, [playMode, currentChordShape, fretQueue, customFrets, keyMapping, isSettingsOpen]);
 
   // Handle clicking a fret in Custom Mode
   const handleFretToggle = (stringIndex: number, fret: number) => {
     if (playMode !== 'custom') return;
-    
     setCustomFrets(prev => {
       const next = [...prev];
-      // If clicking the same fret, toggle to Open (0). If already Open, maybe Mute? 
-      // Let's keep it simple: Click to set fret. 
-      // Special case: clicking nut (0) sets to 0.
       next[stringIndex] = fret;
       return next;
     });
@@ -121,6 +185,7 @@ const App: React.FC = () => {
       button: 'bg-[#2a2a2a] text-gray-300 hover:bg-[#333] border-gray-700',
       buttonActive: 'bg-amber-700 text-white border-amber-600 shadow-[0_0_15px_rgba(180,83,9,0.4)]',
       fretboardContainer: 'shadow-[0_20px_50px_-12px_rgba(0,0,0,1)]',
+      queueBg: 'bg-gray-900 border-gray-700 text-amber-500',
     },
     anime: {
       appBg: 'bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50',
@@ -130,12 +195,22 @@ const App: React.FC = () => {
       button: 'bg-white/50 text-slate-600 hover:bg-white border-white',
       buttonActive: 'bg-gradient-to-r from-pink-400 to-purple-400 text-white border-transparent shadow-lg',
       fretboardContainer: 'shadow-[0_20px_40px_-12px_rgba(168,85,247,0.2)]',
+      queueBg: 'bg-white/80 border-pink-200 text-pink-500 shadow-inner',
     }
   }[theme];
 
   return (
     <div className={`w-full h-full fixed inset-0 flex flex-col overflow-hidden transition-colors duration-500 ${ts.appBg} ${theme === 'anime' ? "font-['M_PLUS_Rounded_1c']" : 'font-sans'}`}>
       
+      <KeySettingsModal 
+        isOpen={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)}
+        keyMapping={keyMapping}
+        onUpdateMapping={setKeyMapping}
+        onReset={() => setKeyMapping(DEFAULT_KEY_MAP)}
+        theme={theme}
+      />
+
       {/* Header */}
       <header className={`px-4 py-3 md:py-4 flex justify-between items-center z-20 shrink-0 ${theme === 'classic' ? 'border-b border-gray-800 bg-[#121212]' : 'bg-white/30 backdrop-blur-sm'}`}>
         <div className="flex items-center gap-3">
@@ -149,6 +224,13 @@ const App: React.FC = () => {
         </div>
 
         <div className="flex gap-2 md:gap-4">
+           <button 
+             onClick={() => setIsSettingsOpen(true)}
+             className={`p-2 rounded-full transition-all ${ts.button}`}
+             title="Keyboard Settings"
+           >
+             <Settings2 size={20} />
+           </button>
            <button 
              onClick={() => setTheme(theme === 'classic' ? 'anime' : 'classic')}
              className={`p-2 rounded-full transition-all ${ts.button}`}
@@ -165,12 +247,11 @@ const App: React.FC = () => {
          <div className={`absolute top-2 z-10 pointer-events-none transition-opacity duration-500 ${playMode === 'custom' ? 'opacity-100' : 'opacity-0'}`}>
             <div className={`flex flex-col items-center gap-2 px-6 py-2 rounded-2xl backdrop-blur-md ${theme === 'classic' ? 'bg-black/40 border border-amber-900/50 text-amber-500' : 'bg-white/40 border border-pink-200 text-pink-500'}`}>
                <span className="text-xs font-bold flex items-center gap-2">
-                 <Zap size={12}/> Custom Mode
+                 <Zap size={12}/> Custom Mode Active
                </span>
                <div className="text-[10px] opacity-80 text-center leading-tight">
-                 Click frets to set shape.<br/>
-                 Press <b>Space</b> to strum.<br/>
-                 Keys <b>A-S-D-F-G-H</b> pluck strings.
+                 Queue frets with <b>1-4, q-r...</b><br/>
+                 Pluck strings with <b>u-i-o-j-k-l</b>
                </div>
             </div>
          </div>
@@ -212,15 +293,27 @@ const App: React.FC = () => {
                     {playMode === 'chord' ? (
                         <span>{currentChordName}</span>
                     ) : (
-                        <span className="flex items-center gap-2 text-lg">
-                           <Keyboard size={20} className="opacity-50"/> 
-                           <span className="hidden md:inline text-xs font-normal opacity-50 mr-2">Use A-H Keys</span>
-                        </span>
+                        <div className="flex items-center gap-2">
+                           {fretQueue.length > 0 ? (
+                             <div className={`flex items-center gap-2 px-3 py-1 rounded-lg border text-base ${ts.queueBg}`}>
+                                <span className="text-[10px] uppercase tracking-wider opacity-70">Queue:</span>
+                                {fretQueue.map((f, i) => (
+                                  <span key={i} className={`font-mono font-bold ${i === 0 ? 'text-lg scale-110' : 'opacity-60'}`}>{f}</span>
+                                ))}
+                                <span className="ml-2 text-[10px] opacity-50"><Delete size={12}/></span>
+                             </div>
+                           ) : (
+                             <span className="flex items-center gap-2 text-lg opacity-40">
+                               <Keyboard size={20}/> 
+                               <span className="hidden md:inline text-xs font-normal">Use keyboard to queue</span>
+                             </span>
+                           )}
+                        </div>
                     )}
                 </div>
             </div>
 
-            {/* Chord Buttons */}
+            {/* Chord Buttons / Visual Aid */}
             {playMode === 'chord' ? (
               <div className="grid grid-cols-4 md:grid-cols-8 gap-2 md:gap-3">
                   {chordList.map((chord, index) => (
@@ -234,13 +327,21 @@ const App: React.FC = () => {
                         `}
                     >
                         {chord}
-                        <span className="absolute top-1 right-1.5 text-[8px] opacity-50">{index + 1}</span>
                     </button>
                   ))}
               </div>
             ) : (
-               <div className={`w-full h-12 md:h-14 flex items-center justify-center text-sm ${ts.textSecondary} opacity-60`}>
-                  Tap the fretboard to create a custom chord shape.
+               <div className={`w-full h-12 md:h-14 flex items-center justify-between px-4 rounded-xl border-2 border-dashed ${theme === 'classic' ? 'border-gray-800 text-gray-500' : 'border-white/50 text-slate-400'}`}>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold uppercase tracking-widest opacity-70">Operation Guide</span>
+                    <span className="text-sm">Queue fret (e.g., <b>1</b>) &rarr; Pluck string (e.g., <b>u</b>)</span>
+                  </div>
+                  <button 
+                    onClick={() => setCustomFrets([0,0,0,0,0,0])}
+                    className="text-xs hover:underline"
+                  >
+                    Reset Board
+                  </button>
                </div>
             )}
         </div>
