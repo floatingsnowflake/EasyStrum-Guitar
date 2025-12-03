@@ -55,6 +55,11 @@ const GuitarString: React.FC<GuitarStringProps> = ({
   const currentColors = colors[theme];
   const stringColor = currentColors[stringIndex];
 
+  // Visual hint if this string is the active one in a sheet playback scenario
+  // (We infer this by checking if activeFret > -1 while others might be muted in a specific way, 
+  // but simpler: if activeFret is set, we highlight it slightly more)
+  const isTarget = activeFret > -1 && !isMuted;
+
   const handleMouseEnter = () => {
     // Mouse hover strumming
     if (!isMuted) {
@@ -83,6 +88,11 @@ const GuitarString: React.FC<GuitarStringProps> = ({
         }}
       />
       
+      {/* Target indicator ring (e.g. for Sheet mode next note) */}
+      {isTarget && (
+         <div className={`absolute left-0 w-2 h-2 rounded-full -translate-x-3 opacity-50 ${theme === 'classic' ? 'bg-amber-500' : 'bg-pink-400'}`} />
+      )}
+
       {/* Invisible larger hit area for easier mouse/touch interaction */}
       <div className="w-full h-full absolute top-0 left-0 z-10 opacity-0" data-string-index={stringIndex} />
     </div>

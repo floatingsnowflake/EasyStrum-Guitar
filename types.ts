@@ -11,6 +11,13 @@ export interface ChordShape {
   fingers?: number[]; // Suggested fingerings (optional)
 }
 
+export interface SheetNote {
+  id: string;
+  stringIndex: number;
+  fret: number;
+  timestamp: number;
+}
+
 // Standard Tuning: E A D G B E
 // E2 (82.41Hz)
 export const STRINGS: GuitarStringConfig[] = [
